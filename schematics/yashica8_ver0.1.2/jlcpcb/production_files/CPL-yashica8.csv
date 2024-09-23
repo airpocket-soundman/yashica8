@@ -1,0 +1,18 @@
+Designator,Val,Package,Mid X,Mid Y,Rotation,Layer
+D1,LED RED,LED_D3.0mm,24.78,19.51,0.0,top
+D2,LED GREEN,LED_D3.0mm,24.78,24.59,0.0,top
+J1,Raspberry_Pi_zero2W,raspberry Pi socket 2x19,34.94,30.94,180.0,top
+R1,36k,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,-15.86,24.59,0.0,top
+R2,1k,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,-12.05,33.48,0.0,top
+R3,12k,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,-12.05,36.02,0.0,top
+R4,220,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,-15.86,19.51,0.0,top
+R5,2k,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,-15.86,16.97,0.0,top
+R6,2k2,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,-12.05,38.56,0.0,top
+R7,220,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,-15.86,22.05,0.0,top
+R8,1k,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,28.59,19.51,-90.0,top
+R9,1k,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,28.59,24.59,-90.0,top
+SW1,SW_DIP_x06,SW_DIP_SPSTx06_Slide_9.78x17.42mm_W7.62mm_P2.54mm,14.62,49.99,90.0,top
+SW2,SW_shutdown,SW_PUSH_6mm,26.05,10.62,90.0,top
+U1,LM397,SOT-23-5,-3.0275,38.24,0.0,top
+U2,~,MP2307 DC-DC Board,-4.43,48.72,90.0,top
+U3,LBR-123F_2,LBR-123F_2,-12.05,6.81,-90.0,top

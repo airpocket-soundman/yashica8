@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Sensor_Proximity_my")(type "KiCad")(uri "${KIPRJMOD}/Sensor_Proximity_my.kicad_sym")(options "")(descr ""))
+  (lib (name "crockwork_cinecamera")(type "KiCad")(uri "${KIPRJMOD}/crockwork_cinecamera.kicad_sym")(options "")(descr ""))
+  (lib (name "slide_switch")(type "KiCad")(uri "${KIPRJMOD}/slide_switch.kicad_sym")(options "")(descr ""))
+)

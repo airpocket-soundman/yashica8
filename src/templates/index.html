@@ -1,0 +1,11 @@
+<html>
+   <head>
+       <title>{{ title }} CAMERA STREAMING TEST</title>
+   </head>
+   <body>
+       <h3>from {{ user.username }}.</h3>
+       <h3>CAMERA STREAMING TEST.</h3>
+       <img src="{{ url_for('video_feed') }}">
+       <h3>lens:{{ user.lens }}</h3>
+   </body>
+</html>

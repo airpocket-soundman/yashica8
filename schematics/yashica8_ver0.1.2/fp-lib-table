@@ -1,0 +1,6 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "Library")(type "KiCad")(uri "${KIPRJMOD}/yashica8-backups/Library.pretty")(options "")(descr ""))
+  (lib (name "clockwork")(type "KiCad")(uri "${KIPRJMOD}/clockwork.pretty")(options "")(descr ""))
+  (lib (name "clock_work_camera")(type "KiCad")(uri "${KIPRJMOD}/clock_work_camera.pretty")(options "")(descr ""))
+)

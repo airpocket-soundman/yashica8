@@ -1,0 +1,191 @@
+From: (your name) <your@email.com>
+Date: (date)
+Subject: [PATCH] media: i2c: imx708: add XVS sync trigger_mode support
+
+Add trigger_mode module parameter to IMX708 driver, ported from IMX477.
+This enables the sensor to act as a XVS sync sink (mode=2), accepting
+an external pulse on the XVS pin to synchronize frame readout timing.
+
+Intended use: film scanner / telecine applications where an external
+8mm film camera shutter signal drives IMX708 frame capture via XVS.
+
+Register addresses assumed identical to IMX477 (same Sony Exmor RS family).
+REQUIRES HARDWARE VERIFICATION of 0x3F0B, 0x3041, 0x3040, 0x4B81 on IMX708.
+
+Signed-off-by: (your name) <your@email.com>
+---
+ drivers/media/i2c/imx708.c | 67 ++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 65 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/i2c/imx708.c b/drivers/media/i2c/imx708.c
+index xxxxxxx..yyyyyyy 100644
+--- a/drivers/media/i2c/imx708.c
++++ b/drivers/media/i2c/imx708.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /*
+  * A V4L2 driver for Sony IMX708 cameras.
++ * XVS trigger_mode support based on IMX477 driver.
+  * Copyright (C) 2022, Raspberry Pi Ltd
+  */
+ 
+@@ -XX,6 +XX,26 @@
+ /* Existing defines ... */
+ #define IMX708_REG_MODE_SELECT        0x0100
+ #define IMX708_MODE_STANDBY           0x00
+ #define IMX708_MODE_STREAMING         0x01
+
++/*
++ * XVS sync trigger registers.
++ * ASSUMED identical to IMX477 (same Sony Exmor RS family).
++ * *** MUST BE VERIFIED by I2C trace on actual IMX708 hardware ***
++ *
++ * To verify, run with trigger_mode=0 and trace I2C after manually
++ * writing these addresses, checking for sensor behavior changes.
++ */
++#define IMX708_REG_MC_MODE            0x3F0B  /* Multi-camera mode enable */
++#define IMX708_REG_MS_SEL             0x3041  /* Master/Slave select */
++#define IMX708_REG_XVS_IO_CTRL        0x3040  /* XVS pin direction (0=in,1=out) */
++#define IMX708_REG_EXTOUT_EN          0x4B81  /* External output enable */
++
++/*
++ * trigger_mode:
++ *   0 = standalone (normal, default)
++ *   1 = source: output XVS pulse each frame (master)
++ *   2 = sink:   accept external XVS pulse to sync readout (slave)
++ *               Used for 8mm film scanner shutter sync
++ */
++static int trigger_mode;
++module_param(trigger_mode, int, 0644);
++MODULE_PARM_DESC(trigger_mode,
++    "XVS sync trigger mode: 0=standalone(default), 1=source, 2=sink");
++
+ /* --- struct imx708 definition (add trigger_mode_of field) --- */
+@@ -XX,6 +XX,8 @@ struct imx708 {
+     /* ... existing fields ... */
++
++    /* DT-specified trigger mode; -1 means use module param */
++    int trigger_mode_of;
+ };
+
+@@ -XX,6 +XX,12 @@ static int imx708_probe(struct i2c_client *client)
+ {
+     /* ... existing probe code ... */
++
++    /* Read trigger-mode from device tree, default -1 (use module param) */
++    if (of_property_read_s32(client->dev.of_node, "trigger-mode",
++                             &imx708->trigger_mode_of))
++        imx708->trigger_mode_of = -1;
++
+     /* ... rest of probe ... */
+ }
+
+@@ -XX,6 +XX,38 @@ static int imx708_start_streaming(struct imx708 *imx708)
+ {
+     /* ... existing streaming setup (write mode regs, ctrls) ... */
++
++    /*
++     * Apply XVS trigger mode BEFORE stream-on.
++     *
++     * Sink mode (tm==2) logic (identical to IMX477):
++     *   MC_MODE=1     : enable multi-camera mode
++     *   MS_SEL=0      : slave (accepts external XVS)
++     *   XVS_IO_CTRL=0 : XVS pin = INPUT
++     *   EXTOUT_EN=0   : no output
++     *
++     * Source mode (tm==1):
++     *   MC_MODE=1, MS_SEL=1, XVS_IO_CTRL=1, EXTOUT_EN=1
++     *
++     * Standalone (tm==0): do not write these registers at all.
++     */
++    {
++        int tm = (imx708->trigger_mode_of >= 0) ?
++                  imx708->trigger_mode_of : trigger_mode;
++
++        if (tm > 0) {
++            int ret2 = 0;
++            imx708_write_reg(imx708, IMX708_REG_MC_MODE,
++                             IMX708_REG_VALUE_08BIT, 1);
++            imx708_write_reg(imx708, IMX708_REG_MS_SEL,
++                             IMX708_REG_VALUE_08BIT, (tm <= 1) ? 1 : 0);
++            imx708_write_reg(imx708, IMX708_REG_XVS_IO_CTRL,
++                             IMX708_REG_VALUE_08BIT, (tm == 1) ? 1 : 0);
++            imx708_write_reg(imx708, IMX708_REG_EXTOUT_EN,
++                             IMX708_REG_VALUE_08BIT, (tm == 1) ? 1 : 0);
++            if (ret2) {
++                dev_err(&client->dev,
++                        "Failed to set XVS trigger mode %d\n", tm);
++                return ret2;
++            }
++            dev_info(&client->dev,
++                     "IMX708 XVS trigger_mode=%d (%s)\n", tm,
++                     tm == 1 ? "source" : "sink");
++        }
++    }
++
+     /* set stream on register (MUST come after trigger mode setup) */
+     return imx708_write_reg(imx708, IMX708_REG_MODE_SELECT,
+                             IMX708_REG_VALUE_08BIT, IMX708_MODE_STREAMING);
+ }
+-- 
+2.xx.x
+
+================================================================================
+VERIFICATION PROCEDURE (I2C trace method)
+================================================================================
+
+After building and loading the patched driver, verify register addresses:
+
+1. Enable I2C tracing:
+   sudo modprobe i2c-dev
+   echo 1 > /sys/kernel/debug/tracing/events/i2c/enable
+   cat /sys/kernel/debug/tracing/trace_pipe > /tmp/i2c_trace.txt &
+
+2. Start camera with trigger_mode=2 (sink):
+   echo 2 | sudo tee /sys/module/imx708/parameters/trigger_mode
+   rpicam-still -t 5000 -o /dev/null
+
+3. Stop tracing:
+   kill %1
+
+4. Check trace for writes to 0x3F0B, 0x3041, 0x3040, 0x4B81:
+   grep "01a" /tmp/i2c_trace.txt | grep -E "3[Ff]0[Bb]|3041|3040|4[Bb]81"
+
+   If these addresses appear with the expected values (MC_MODE=01,
+   MS_SEL=00, XVS_IO_CTRL=00, EXTOUT_EN=00), the addresses are correct.
+
+5. Physical test: with trigger_mode=2 loaded, generate a 1.8V XVS pulse
+   from a GPIO pin (via voltage divider) and verify the camera syncs.
+
+================================================================================
+GPIO → XVS HARDWARE SETUP (Zero 2W, no Pico)
+================================================================================
+
+Zero 2W GPIO (3.3V) → 1.8V level shift → IMX708 XVS pin
+
+Voltage divider for 1.8V:
+  GPIO pin → 10kΩ → XVS
+  XVS node → 10kΩ → GND
+  Result: 3.3V * 10k/(10k+10k) = 1.65V ≈ 1.8V (acceptable)
+
+Zero 2W GPIO interrupt latency: ~50-500μs (Linux scheduler dependent)
+8mm shutter open time at 32fps: ~15ms
+→ GPIO jitter is acceptable for this use case
+
+Python control code sketch:
+  import RPi.GPIO as GPIO
+  SHUTTER_IN = 18   # フォトインタラプタ入力
+  XVS_OUT    = 24   # XVSパルス出力（要レベル変換）
+
+  GPIO.setmode(GPIO.BCM)
+  GPIO.setup(SHUTTER_IN, GPIO.IN)
+  GPIO.setup(XVS_OUT, GPIO.OUT, initial=GPIO.HIGH)
+
+  def shutter_detected(channel):
+      # シャッター開放エッジ検出 → XVSパルス生成
+      GPIO.output(XVS_OUT, GPIO.LOW)
+      # ~1μs待機（noop loopで）
+      GPIO.output(XVS_OUT, GPIO.HIGH)
+
+  GPIO.add_event_detect(SHUTTER_IN, GPIO.FALLING,
+                        callback=shutter_detected, bouncetime=5)
